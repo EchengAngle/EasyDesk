@@ -45,7 +45,19 @@ typedef struct
 
 void *adjust_thread(void* threadpool); //callback used by manager thread
 
-int is_thread_alive(pthread_t tid){return tid == 0;}
+int is_thread_alive(pthread_t thread)
+{
+   int result = pthread_tryjoin_np(thread, NULL);
+   if (result == 0) {
+      return 0; // Thread has terminated
+   } else if (result == EBUSY) {
+      return 1; // Thread is still running
+   } else {
+      perror("pthread_tryjoin_np");
+      return 0; // An error occurred; still return false
+   }
+}
+
 int threadpool_free(threadpool_t *pool);
 
 // worker in threadpool, to process task.
@@ -150,8 +162,8 @@ void *adjust_thread(void* threadpool)
          for(int i=0; i< pool->max_thr_num && add < DEFAULT_THREAD_VARY
          && pool->live_thr_num < pool->max_thr_num; i++)
          {
-            //if(pool->threads[i] == 0 || !is_thread_alive(pool->threads[i]))
-            if(pool->threads[i] == 0)
+            if(pool->threads[i] == 0 || !is_thread_alive(pool->threads[i]))
+            //if(pool->threads[i] == 0)
             {
                pthread_create(&(pool->threads[i]), NULL, threadpool_thread, (void*)pool);
                ++add;
